@@ -1,4 +1,4 @@
-# wa2
+# wearableproject
 
 A new Flutter project.
 
