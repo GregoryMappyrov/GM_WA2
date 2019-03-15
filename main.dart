@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 
-var version = 27;
+var version = 29;
 
 void main() => runApp(MaterialApp(
       title: 'Repeating Strategy',
@@ -36,6 +36,7 @@ void _mainAction(var context) async {
   _startS(context); 
 }
 
+var charW;
 
 void secondStep(var context) async {
   print('Second step begin');
@@ -50,7 +51,7 @@ void secondStep(var context) async {
     services.forEach((service) {
       print('SERVICE');
     // do something with service
-        if (service.uuid == '713D0000-503E-4C75-BA94-3148F18D941E') {
+        if (service.uuid == new Guid('713D0000-503E-4C75-BA94-3148F18D941E')) {
           print('first step vibro');
           scanCh(service);
         }
@@ -62,6 +63,10 @@ void secondStep(var context) async {
         print('sendSignal' + '$ss'); //SUBSTITUTE WITH SENDING SIGNAL
         signals.add('sendSignal' + '$ss');
         signalsCounter += 1;
+        setChar(ss);
+        await device.writeCharacteristic(charW, vib);
+        sleep1();
+        await device.writeCharacteristic(charW, [0x00, 00, 00, 00]);
     }
 
     await print('second step middle.');
@@ -74,16 +79,32 @@ void secondStep(var context) async {
   }
 }
 
+var vib;
+
+void setChar(var ss) {
+
+if( ss == 1)
+  vib = [0x15, 00, 00, 00];
+else if(ss == 2)
+  vib =  [0x00, 15, 00, 00];
+else if(ss == 3)
+  vib =  [0x00, 00, 15, 00];
+else 
+  vib =  [0x00, 00, 00, 15];
+
+}
+
 void scanCh(var service) async {
         var characteristics = service.characteristics;
         for(BluetoothCharacteristic c in characteristics) {
             List<int> value = await device.readCharacteristic(c);
-            print('ch-value: ' + '$value');
-            if (c.uuid == '713D0003-503E-4C75-BA94-3148F18D941E') {
+            //print('ch-value: ' + '$value');
+            if (c.uuid == new Guid('713D0003-503E-4C75-BA94-3148F18D941E')) {
               print('second step vibro');
-              await device.writeCharacteristic(c, [0x00, 21, 00, 00]);
-              sleep1();
-              await device.writeCharacteristic(c, [0x00, 00, 00, 00]);
+              charW = c;
+              //await device.writeCharacteristic(c, [0x00, 15, 00, 00]);
+              //sleep1();
+              //await device.writeCharacteristic(c, [0x00, 00, 00, 00]);
             }
         }
 }
@@ -92,21 +113,21 @@ FlutterBlue flutterBlue = FlutterBlue.instance;
 
 void _startS(var context) async {
   //print('STARTING SCANNING_________________________');
-  if (device == null) {
+  //if (device == null) {
     scanSubscription = await flutterBlue.scan().listen((scanResult) {
       // do something with scan result
       device = scanResult.device;
       print('device name: ' + scanResult.device.name);
       forConnection(scanResult, device, context); 
     });
-  }
-  else {
-    print('way around');
-    flutterBlue.connect(device);
-    connected = true;
+ // }
+  //else {
+  //  print('way around');
+ //   flutterBlue.connect(device);
+  //  connected = true;
     //suspendedConnection(flutterBlue, device, context);
-    secondStep(context);
-  }
+  //  secondStep(context);
+ // }
 }
 
 void forConnection(var scanResult, var device, var context) async {
@@ -115,7 +136,7 @@ void forConnection(var scanResult, var device, var context) async {
       print('found ' + device.name);
       _stopS();
       await suspendedConnection(device, context);
-      print('suspended connection success');
+     // print('suspended connection success');
     }
 }
 
@@ -139,7 +160,7 @@ void assign(var d1, var d2) async {
 }
 
 void _disC() async {
-  //deviceConnection.cancel();
+  deviceConnection.cancel();
   print('disconnected');
   connected = false;
 }
