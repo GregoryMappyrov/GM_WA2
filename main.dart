@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'dart:io';
+import 'dart:math';
+import 'dart:async';
+
+var version = 27;
 
 void main() => runApp(MaterialApp(
       title: 'Repeating Strategy',
@@ -9,6 +12,10 @@ void main() => runApp(MaterialApp(
     ));
 
 var signals = <String>[];
+BluetoothDevice device;
+var scanSubscription;
+var deviceConnection;
+bool connected = false;
 
 AppBar WhiteAB(){
   var ab;
@@ -17,28 +24,131 @@ AppBar WhiteAB(){
 
 void sleep1() {
   sleep(const Duration(seconds: 3));
-  print('w8ed');
+  print('w8ed???');
 }
-
-void _mainAction(var context){
+///////////////////////////////////////////////////////////////
+void _mainAction(var context) async {
+  connected = false;
   signals.clear();
   print('Score ' + '$score');
-  print('scan, connect, get properties, set ready');
-      
-      sleep1();
-
-      print('sendSignal1');
-      signals.add('sendSignal1');
-      print('sendSignal2');
-      signals.add('sendSignal2');
-      print('sendSignal3');
-      signals.add('sendSignal3');
-      print('sendSignal4');
-      signals.add('sendSignal4');
-
-      _goAction(context, new Screen3State());
-
+  print('Start main action');
+  
+  _startS(context); 
 }
+
+
+void secondStep(var context) async {
+  print('Second step begin');
+  var rng = new Random();
+  if(connected){
+
+    //sleep1(); //DELETE
+    print('bzz');
+
+
+    List<BluetoothService> services = await device.discoverServices();
+    services.forEach((service) {
+      print('SERVICE');
+    // do something with service
+        if (service.uuid == '713D0000-503E-4C75-BA94-3148F18D941E') {
+          print('first step vibro');
+          scanCh(service);
+        }
+    });
+
+
+    for(var j = 1; j <= roundSignals; j++ ) {
+        var ss = rng.nextInt(4) + 1;
+        print('sendSignal' + '$ss'); //SUBSTITUTE WITH SENDING SIGNAL
+        signals.add('sendSignal' + '$ss');
+        signalsCounter += 1;
+    }
+
+    await print('second step middle.');
+
+    //await _disC();
+
+    //await print('ss disc.');
+
+    _goAction(context, new Screen3State());
+  }
+}
+
+void scanCh(var service) async {
+        var characteristics = service.characteristics;
+        for(BluetoothCharacteristic c in characteristics) {
+            List<int> value = await device.readCharacteristic(c);
+            print('ch-value: ' + '$value');
+            if (c.uuid == '713D0003-503E-4C75-BA94-3148F18D941E') {
+              print('second step vibro');
+              await device.writeCharacteristic(c, [0x00, 21, 00, 00]);
+              sleep1();
+              await device.writeCharacteristic(c, [0x00, 00, 00, 00]);
+            }
+        }
+}
+
+FlutterBlue flutterBlue = FlutterBlue.instance;
+
+void _startS(var context) async {
+  //print('STARTING SCANNING_________________________');
+  if (device == null) {
+    scanSubscription = await flutterBlue.scan().listen((scanResult) {
+      // do something with scan result
+      device = scanResult.device;
+      print('device name: ' + scanResult.device.name);
+      forConnection(scanResult, device, context); 
+    });
+  }
+  else {
+    print('way around');
+    flutterBlue.connect(device);
+    connected = true;
+    //suspendedConnection(flutterBlue, device, context);
+    secondStep(context);
+  }
+}
+
+void forConnection(var scanResult, var device, var context) async {
+    if(scanResult.device.name.length > 12 && scanResult.device.name.substring(0,15) == "TECO Wearable 1") { 
+      await assign(device, scanResult.device);
+      print('found ' + device.name);
+      _stopS();
+      await suspendedConnection(device, context);
+      print('suspended connection success');
+    }
+}
+
+void suspendedConnection(var device, var context) async {
+  print('starting susp connection');
+  deviceConnection = await flutterBlue.connect(device).listen((s) {
+      if(!connected) {
+          print('connected suspended ' + device.name);
+          
+          connected = true;
+          //_inConnection(device);
+
+          secondStep(context);
+      }
+  });
+}
+
+void assign(var d1, var d2) async {
+  print('assigned');
+  d1 = d2;
+}
+
+void _disC() async {
+  //deviceConnection.cancel();
+  print('disconnected');
+  connected = false;
+}
+
+void _stopS() async {
+  scanSubscription.cancel();
+  print('STOP SCANNING_____________________________');
+}
+
 
 void _goAction(var context, StatelessWidget sw) {
       print('next');
@@ -55,6 +165,7 @@ class RepeatingTest extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
+        print('check' + '$version');
         return new Center(
             child: new Scaffold(
               appBar: WhiteAB(),
@@ -66,14 +177,14 @@ class RepeatingTest extends StatelessWidget {
                     new Row(),
                     new Padding(
                         padding: EdgeInsets.symmetric(horizontal: 50.0),
-                        child: new Text('Human\'s working memory capacity is restricted, but can be trained', 
+                        child: new Text('Human\'s working memory\'s capacity is restricted, but can be trained', 
                             style: TextStyle(fontSize: 22, color: Colors.black), textAlign: TextAlign.center,
                         ),
                     ),
                     new Row(),
                     new ChangeButton(onPressed: (){     
                           _goAction(context, new Screen2State());
-                        }, name: 'Let\'s do it'
+                        }, name: 'Let\'s do it!'
                     ),
                     new Row(),
                     new Row(),
@@ -98,6 +209,9 @@ class ChangeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    //if(device != null) {
+    //  device.discoverServices();
+    //}
     var n = signals.length;
     print('new button and signals ' + '$n');
     return RaisedButton(
@@ -106,6 +220,12 @@ class ChangeButton extends StatelessWidget {
       child: new Text(name, style: TextStyle(color: Colors.white)),
     );
   }
+}
+void reset() {
+    signals = <String>[];
+    score = 0;
+    signalsCounter = 0;
+    roundSignals = 5;
 }
 
 class Screen2State extends StatelessWidget {
@@ -124,21 +244,19 @@ class Screen2State extends StatelessWidget {
                       new Row(),
                       new Row(),
                       new Row(),
+                      new Text('Remember the sequence', style: TextStyle(fontSize: 32, color: Colors.green), textAlign: TextAlign.center,),
+                      new Row(),
+                      new Row(),
                       new ChangeButton(
                           onPressed: () {
                               _mainAction(context); 
                           },
-                          name: ' Connect Device and Send Signals',
+                          name: 'Connect Device and Send Signals',
                       ),
-                      new Text('Remember the sequence', style: TextStyle(fontSize: 32, color: Colors.green), textAlign: TextAlign.center,),
-                      new Row(),
-                      new Row(),
-                      new Row(),
                       new ChangeButton(
                           onPressed: () {
                               _goAction(context, new RepeatingTest());
-                              signals = <String>[];
-                              score = 0;
+                              reset();
                           },
                           name: 'Exit',
                       ),
@@ -184,18 +302,31 @@ class Screen3State extends StatelessWidget {
               body: new Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
                     new ChangeButton(
                           onPressed: () {
                               _addSignal(buttonsPressed, 1, context);
                           },
                           name: 'front',
                     ),
-                    new ChangeButton(
-                          onPressed: () {
-                              _addSignal(buttonsPressed, 2, context);
-                          },
-                          name: 'right',
-                    ),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Padding(padding:  EdgeInsets.all(40.0),
+                    child:
+                    new Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
                     new ChangeButton(
                           onPressed: () {
                               _addSignal(buttonsPressed, 3, context);
@@ -204,10 +335,31 @@ class Screen3State extends StatelessWidget {
                     ),
                     new ChangeButton(
                           onPressed: () {
+                              _addSignal(buttonsPressed, 2, context);
+                          },
+                          name: 'right',
+                    ),
+                    ],),),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new ChangeButton(
+                          onPressed: () {
                               _addSignal(buttonsPressed, 4, context);
                           },
                           name: 'back',
                     ),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
+                    new Row(),
                   ]
               )
           )
@@ -220,11 +372,17 @@ void _addSignal(var bpA, var sN, var context) {
     if(bpA.length == signals.length) {
         print('next:Score' + '$score');
         score += rightAnswers(signals, bpA);
-        _goAction(context, new Screen4State());
+        if (signalsCounter < 35) {
+          _goAction(context, new Screen4State());
+        }
+        else {
+          _goAction(context, new Screen5State());
+        }
     }
 }
 
-
+int signalsCounter = 0;
+int roundSignals = 5;
 
 class Screen4State extends StatelessWidget {
   
@@ -236,21 +394,62 @@ class Screen4State extends StatelessWidget {
               body: new Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                      new Text('Result: ' + '$score'),
+                      new Row(),
+                      new Text('Result: ' + '$score/$signalsCounter', style: new TextStyle(fontSize: 50)),
+                      new Row(),
                       new ChangeButton(
                           onPressed: () {
                               _goAction(context, new Screen2State());
+                              roundSignals += 1;
                           },
                           name: 'Next Round',
-                    ),
+                      ),
+                      new Row(),
                   ]
               )
           )
         );
   }
 }
-
-
+//5+6+7+8+9=35
+class Screen5State extends StatelessWidget {
+  
+  @override
+  Widget build(BuildContext context) {
+      var finalScore = (score/0.35).round();
+      var honesty = '';
+      if(finalScore < 40) {
+        honesty = 'You have to work on your working memory';
+      }
+      else if(finalScore < 80) {
+        honesty = 'Your working memory is good';
+      }
+      else {
+        honesty = 'Excellent working memory';
+      }
+      return new Center(
+          child: new Scaffold(
+              appBar: WhiteAB(),
+              body: new Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                      new Row(),
+                      new Text('Final Score: ' + '$finalScore%', style: new TextStyle(fontSize: 49)),
+                      new Text(honesty, style: new TextStyle(fontSize: 22), textAlign: TextAlign.center,),
+                      new ChangeButton(
+                          onPressed: () {
+                              _goAction(context, new RepeatingTest());
+                              reset();
+                          },
+                          name: 'Exit',
+                      ),
+                      new Row(),
+                  ]
+              )
+          )
+        );
+  }
+}
 
 
 /*
@@ -327,10 +526,11 @@ class BLE extends StatefulWidget {
 
 class BLEState extends State<BLE>  with AutomaticKeepAliveClientMixin<BLE> {
   //FlutterBlue flutterBlue = FlutterBlue.instance;
-  var scanSubscription;
+  
   //var scanSubscriptionS;
   //var deviceConnection;
   BluetoothDevice device;
+  var scanSubscription;
   //List<BluetoothDevice> devices;
 
   /// Start scanning
