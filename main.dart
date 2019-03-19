@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 
-var version = 43;
+var version = 44;
 
 void main() => runApp(MaterialApp(
       title: 'Repeating Strategy',
@@ -335,10 +335,18 @@ class Screen24State extends StatelessWidget {
           child: new Scaffold(
               appBar: WhiteAB(),
               body: new Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     new Row(),
                     new Text('Connecting...', style: TextStyle(fontSize: 32, color: Colors.green), textAlign: TextAlign.center),
+                    
+                    new ChangeButton(
+                          onPressed: () {
+                            _stopS();
+                          _goAction(context, new Screen2State());
+                          },
+                          name: 'Cancel',
+                    ),
                     new Row(),
                   ]
               )
