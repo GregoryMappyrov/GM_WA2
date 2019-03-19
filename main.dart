@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 
-var version = 39;
+var version = 43;
 
 void main() => runApp(MaterialApp(
       title: 'Repeating Strategy',
@@ -29,6 +29,7 @@ void sleep1() {
 ///////////////////////////////////////////////////////////////
 void _mainAction(var context) async {
   connected = false;
+  device = null;
   signals.clear();
   print('Score ' + '$score');
   print('Start main action');
@@ -46,7 +47,7 @@ void secondStep(var context) async {
     //sleep1(); //DELETE
     print('bzz');
 
-
+    try {
     List<BluetoothService> services = await device.discoverServices();
     await services.forEach((service) {
       print('SERVICE');
@@ -60,10 +61,13 @@ void secondStep(var context) async {
     await sendSig(context, rng);
 
     await _disC();
-
-    //await print('ss disc.');
-
     _goAction(context, new Screen3State());
+    } catch(PlatformException) {
+      _disC();
+      _goAction(context, new Screen2State());
+      _mainAction(context);
+    }
+
   }
 }
 
@@ -72,13 +76,12 @@ void sendSig(var context, var rng) async {
     for(var j = 1; j <= roundSignals; j++ ) {
         var ss = rng.nextInt(4) + 1;
         print('sendSignal' + '$ss'); //SUBSTITUTE WITH SENDING SIGNAL
-        signals.add('sendSignal' + '$ss');
-        signalsCounter += 1;
         setChar(ss);
         sleep1();
         //await device.writeCharacteristic(charW, vib);
         sleep1();
         await device.writeCharacteristic(charW, [0x00, 00, 00, 00]);
+        signals.add('sendSignal' + '$ss');
     }
 }
 
@@ -155,6 +158,8 @@ void suspendedConnection(var device, var context) async {
           connected = true;
           //_inConnection(device);
 
+          _goAction(context, new Screen25State());
+
           secondStep(context);
       }
   });
@@ -169,6 +174,7 @@ void _disC() async {
   deviceConnection.cancel();
   print('disconnected');
   connected = false;
+  device = null;
 }
 
 void _stopS() async {
@@ -178,7 +184,7 @@ void _stopS() async {
 
 
 void _goAction(var context, StatelessWidget sw) {
-      print('next');
+      print('next' + sw.toString());
       Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => sw),
@@ -278,6 +284,7 @@ class Screen2State extends StatelessWidget {
                       new Row(),
                       new ChangeButton(
                           onPressed: () {
+                              _goAction(context, new Screen24State());
                               _mainAction(context); 
                           },
                           name: 'Connect Device and Send Signals',
@@ -319,6 +326,44 @@ int rightAnswers(var s, var p) {
       }
   }
   return c;
+}
+
+class Screen24State extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+      return new Center(
+          child: new Scaffold(
+              appBar: WhiteAB(),
+              body: new Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    new Row(),
+                    new Text('Connecting...', style: TextStyle(fontSize: 32, color: Colors.green), textAlign: TextAlign.center),
+                    new Row(),
+                  ]
+              )
+          )
+        );
+  }
+}
+
+class Screen25State extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+      return new Center(
+          child: new Scaffold(
+              appBar: WhiteAB(),
+              body: new Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    new Row(),
+                    new Text('Sending Signals...', style: TextStyle(fontSize: 32, color: Colors.green), textAlign: TextAlign.center),
+                    new Row(),
+                  ]
+              )
+          )
+        );
+  }
 }
 
 class Screen3State extends StatelessWidget {
@@ -397,6 +442,7 @@ class Screen3State extends StatelessWidget {
 }
 
 void _addSignal(var bpA, var sN, var context) {
+    signalsCounter += 1;
     bpA.add('sendSignal' + '$sN');
     if(bpA.length == signals.length) {
         print('next:Score' + '$score');
