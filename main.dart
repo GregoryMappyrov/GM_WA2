@@ -78,7 +78,7 @@ void sendSig(var context, var rng) async {
         print('sendSignal' + '$ss'); //SUBSTITUTE WITH SENDING SIGNAL
         setChar(ss);
         sleep1();
-        //await device.writeCharacteristic(charW, vib);
+        await device.writeCharacteristic(charW, vib);
         sleep1();
         await device.writeCharacteristic(charW, [0x00, 00, 00, 00]);
         signals.add('sendSignal' + '$ss');
