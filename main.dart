@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 
-var version = 29;
+var version = 39;
 
 void main() => runApp(MaterialApp(
       title: 'Repeating Strategy',
@@ -23,7 +23,7 @@ AppBar WhiteAB(){
 }
 
 void sleep1() {
-  sleep(const Duration(seconds: 3));
+  sleep(const Duration(seconds: 1));
   print('w8ed???');
 }
 ///////////////////////////////////////////////////////////////
@@ -48,7 +48,7 @@ void secondStep(var context) async {
 
 
     List<BluetoothService> services = await device.discoverServices();
-    services.forEach((service) {
+    await services.forEach((service) {
       print('SERVICE');
     // do something with service
         if (service.uuid == new Guid('713D0000-503E-4C75-BA94-3148F18D941E')) {
@@ -57,21 +57,9 @@ void secondStep(var context) async {
         }
     });
 
+    await sendSig(context, rng);
 
-    for(var j = 1; j <= roundSignals; j++ ) {
-        var ss = rng.nextInt(4) + 1;
-        print('sendSignal' + '$ss'); //SUBSTITUTE WITH SENDING SIGNAL
-        signals.add('sendSignal' + '$ss');
-        signalsCounter += 1;
-        setChar(ss);
-        await device.writeCharacteristic(charW, vib);
-        sleep1();
-        await device.writeCharacteristic(charW, [0x00, 00, 00, 00]);
-    }
-
-    await print('second step middle.');
-
-    //await _disC();
+    await _disC();
 
     //await print('ss disc.');
 
@@ -79,33 +67,51 @@ void secondStep(var context) async {
   }
 }
 
+void sendSig(var context, var rng) async {
+  print('start sending SIGNALS');
+    for(var j = 1; j <= roundSignals; j++ ) {
+        var ss = rng.nextInt(4) + 1;
+        print('sendSignal' + '$ss'); //SUBSTITUTE WITH SENDING SIGNAL
+        signals.add('sendSignal' + '$ss');
+        signalsCounter += 1;
+        setChar(ss);
+        sleep1();
+        //await device.writeCharacteristic(charW, vib);
+        sleep1();
+        await device.writeCharacteristic(charW, [0x00, 00, 00, 00]);
+    }
+}
+
 var vib;
 
 void setChar(var ss) {
+  print('set char');
 
 if( ss == 1)
-  vib = [0x15, 00, 00, 00];
+  vib = [0xff, 0x00, 0x00, 0x00]; //front
 else if(ss == 2)
-  vib =  [0x00, 15, 00, 00];
+  vib =  [0x00, 0xff, 0x00, 0x00]; //right
 else if(ss == 3)
-  vib =  [0x00, 00, 15, 00];
+  vib =  [0x00, 0x00, 0x00, 0xff]; //left
 else 
-  vib =  [0x00, 00, 00, 15];
+  vib =  [0x00, 0x00, 0xff, 0x00];//back
 
 }
 
 void scanCh(var service) async {
+        print('start scanning CH');
         var characteristics = service.characteristics;
         for(BluetoothCharacteristic c in characteristics) {
-            List<int> value = await device.readCharacteristic(c);
+            //List<int> value = await device.readCharacteristic(c);
             //print('ch-value: ' + '$value');
-            if (c.uuid == new Guid('713D0003-503E-4C75-BA94-3148F18D941E')) {
+            if (c != null && c.uuid == new Guid('713D0003-503E-4C75-BA94-3148F18D941E')) {
               print('second step vibro');
-              charW = c;
+              charW = await c;
               //await device.writeCharacteristic(c, [0x00, 15, 00, 00]);
               //sleep1();
               //await device.writeCharacteristic(c, [0x00, 00, 00, 00]);
             }
+            else {print('null CHAR');}
         }
 }
 
@@ -187,6 +193,8 @@ class RepeatingTest extends StatelessWidget {
     @override
     Widget build(BuildContext context) {
         print('check' + '$version');
+        if (device != null)
+          _disC();
         return new Center(
             child: new Scaffold(
               appBar: WhiteAB(),
@@ -246,7 +254,7 @@ void reset() {
     signals = <String>[];
     score = 0;
     signalsCounter = 0;
-    roundSignals = 5;
+    roundSignals = 3;
 }
 
 class Screen2State extends StatelessWidget {
@@ -393,7 +401,7 @@ void _addSignal(var bpA, var sN, var context) {
     if(bpA.length == signals.length) {
         print('next:Score' + '$score');
         score += rightAnswers(signals, bpA);
-        if (signalsCounter < 35) {
+        if (signalsCounter < 25) {
           _goAction(context, new Screen4State());
         }
         else {
@@ -403,7 +411,7 @@ void _addSignal(var bpA, var sN, var context) {
 }
 
 int signalsCounter = 0;
-int roundSignals = 5;
+int roundSignals = 3;
 
 class Screen4State extends StatelessWidget {
   
@@ -432,12 +440,12 @@ class Screen4State extends StatelessWidget {
         );
   }
 }
-//5+6+7+8+9=35
+//3+4+5+6+7=25
 class Screen5State extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
-      var finalScore = (score/0.35).round();
+      var finalScore = (score/0.25).round();
       var honesty = '';
       if(finalScore < 40) {
         honesty = 'You have to work on your working memory';
